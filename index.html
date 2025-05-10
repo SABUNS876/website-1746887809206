@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Tic Tac Toe vs Bot</title>
+<style>
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    padding: 15px;
+    user-select: none;
+  }
+  #game {
+    background: #2c2c54;
+    border-radius: 15px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+    max-width: 360px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+  }
+  h1 {
+    margin: 0 0 15px 0;
+    text-align: center;
+    font-weight: 700;
+    letter-spacing: 2px;
+    font-size: 1.8rem;
+  }
+  #board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-gap: 12px;
+    margin-bottom: 15px;
+  }
+  .cell {
+    background: #474787;
+    border-radius: 10px;
+    height: 95px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 3rem;
+    font-weight: 900;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    user-select: none;
+  }
+  .cell:hover {
+    background: #5f65f4;
+  }
+  .cell.disabled {
+    cursor: default;
+    color: #bbb;
+  }
+  #status {
+    text-align: center;
+    font-size: 1.2rem;
+    min-height: 30px;
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+  button {
+    background: #9a5ceb;
+    border: none;
+    border-radius: 25px;
+    color: #fff;
+    padding: 12px 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(154,92,235,0.6);
+    transition: background 0.3s ease;
+  }
+  button:hover {
+    background: #b37dec;
+  }
+  @media(max-width: 400px) {
+    #board {
+      grid-gap: 8px;
+    }
+    .cell {
+      height: 75px;
+      font-size: 2.2rem;
+    }
+  }
+</style>
+</head>
+<body>
+  <main id="game" role="main" aria-label="Tic Tac Toe game">
+    <h1>Tic Tac Toe</h1>
+    <div id="status" aria-live="polite" aria-atomic="true">Your turn (X)</div>
+    <div id="board" role="grid" aria-label="Tic Tac Toe board">
+      <button class="cell" role="gridcell" aria-label="Row 1 Column 1" data-index="0"></button>
+      <button class="cell" role="gridcell" aria-label="Row 1 Column 2" data-index="1"></button>
+      <button class="cell" role="gridcell" aria-label="Row 1 Column 3" data-index="2"></button>
+      <button class="cell" role="gridcell" aria-label="Row 2 Column 1" data-index="3"></button>
+      <button class="cell" role="gridcell" aria-label="Row 2 Column 2" data-index="4"></button>
+      <button class="cell" role="gridcell" aria-label="Row 2 Column 3" data-index="5"></button>
+      <button class="cell" role="gridcell" aria-label="Row 3 Column 1" data-index="6"></button>
+      <button class="cell" role="gridcell" aria-label="Row 3 Column 2" data-index="7"></button>
+      <button class="cell" role="gridcell" aria-label="Row 3 Column 3" data-index="8"></button>
+    </div>
+    <button id="resetBtn" aria-label="Restart Game">Restart Game</button>
+  </main>
+
+<script>
+(() => {
+  'use strict';
+
+  const board = Array(9).fill(null);
+  let gameActive = true;
+  const player = 'X';
+  const bot = 'O';
+  const cells = document.querySelectorAll('.cell');
+  const statusDisplay = document.getElementById('status');
+  const resetButton = document.getElementById('resetBtn');
+
+  // All winning combinations by index
+  const winPatterns = [
+    [0,1,2], [3,4,5], [6,7,8], // rows
+    [0,3,6], [1,4,7], [2,5,8], // columns
+    [0,4,8], [2,4,6]           // diagonals
+  ];
+
+  // Utility: check winner or draw
+  function checkWinner(board, mark) {
+    return winPatterns.some(pattern =>
+      pattern.every(index => board[index] === mark)
+    );
+  }
+
+  function isDraw(board) {
+    return board.every(cell => cell !== null);
+  }
+
+  // Bot uses a simple AI: tries to win, then block player, then random
+  function botMove() {
+    if (!gameActive) return;
+
+    // 1. Try to win
+    let move = findBestMove(bot);
+    if (move === -1) {
+      // 2. Try to block player
+      move = findBestMove(player);
+    }
+    if (move === -1) {
+      // 3. Pick random available
+      const available = board.map((v,i) => v === null ? i : null).filter(i => i !== null);
+      move = available[Math.floor(Math.random() * available.length)];
+    }
+    placeMark(move, bot);
+  }
+
+  // Find best move to win or block
+  function findBestMove(mark) {
+    for (let i=0; i<board.length; i++) {
+      if (board[i] === null) {
+        board[i] = mark;
+        if (checkWinner(board, mark)) {
+          board[i] = null;
+          return i;
+        }
+        board[i] = null;
+      }
+    }
+    return -1;
+  }
+
+  // Place mark and update UI
+  function placeMark(index, mark) {
+    if (board[index] !== null || !gameActive) return;
+    board[index] = mark;
+    const cell = cells[index];
+    cell.textContent = mark;
+    cell.classList.add('disabled');
+    cell.setAttribute('aria-disabled', 'true');
+
+    if (checkWinner(board, mark)) {
+      gameActive = false;
+      statusDisplay.textContent = (mark === player) ? "You win!" : "Bot wins!";
+      highlightWinningCells(mark);
+    } else if (isDraw(board)) {
+      gameActive = false;
+      statusDisplay.textContent = "It's a draw!";
+    } else {
+      if (mark === player) {
+        statusDisplay.textContent = "Bot's turn (O)";
+        // Small delay for bot move for UX
+        setTimeout(() => {
+          botMove();
+          if (gameActive) statusDisplay.textContent = "Your turn (X)";
+        }, 350);
+      }
+    }
+  }
+
+  // Highlight winning cells
+  function highlightWinningCells(mark) {
+    for (const pattern of winPatterns) {
+      if (pattern.every(index => board[index] === mark)) {
+        pattern.forEach(index => {
+          cells[index].style.backgroundColor = '#f8c291';
+          cells[index].style.color = '#2d3436';
+        });
+        break;
+      }
+    }
+    // Disable all cells
+    cells.forEach(cell => {
+      cell.classList.add('disabled');
+      cell.setAttribute('aria-disabled', 'true');
+    });
+  }
+
+  // Cell click handler
+  function onCellClick(e) {
+    const index = e.target.getAttribute('data-index');
+    if (index === null || board[index] !== null || !gameActive) return;
+    placeMark(parseInt(index, 10), player);
+  }
+
+  // Reset game
+  function resetGame() {
+    board.fill(null);
+    gameActive = true;
+    statusDisplay.textContent = "Your turn (X)";
+    cells.forEach(cell => {
+      cell.textContent = '';
+      cell.classList.remove('disabled');
+      cell.style.backgroundColor = '';
+      cell.style.color = '';
+      cell.removeAttribute('aria-disabled');
+    });
+  }
+
+  // Set event listeners
+  cells.forEach(cell => cell.addEventListener('click', onCellClick));
+  resetButton.addEventListener('click', resetGame);
+
+  // Accessibility: keyboard interaction for cells
+  cells.forEach(cell => {
+    cell.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        cell.click();
+      }
+    });
+  });
+
+})();
+</script>
+</body>
+</html>
+
+```
